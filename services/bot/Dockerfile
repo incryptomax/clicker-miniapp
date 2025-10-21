@@ -1,24 +1,28 @@
-FROM node:18-alpine
+FROM node:18-slim
 
 WORKDIR /app
 
-# Copy shared package files first
-COPY services/shared/package*.json ./shared/
+# Install OpenSSL for Redis connections
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Copy service package files
+# Copy package files
+COPY services/shared/package*.json ./shared/
 COPY services/bot/package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy shared source code to root level for imports
+# Copy shared modules
 COPY services/shared ./
 
-# Copy service source code
+# Copy bot source code
 COPY services/bot .
+
+# Build the application
+RUN npm run build
 
 # Expose port
 EXPOSE 3001
 
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
