@@ -1,0 +1,9 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and types for Telegram Clicker Game",
+  "main": "index.js",
+  "dependencies": {
+    "@opentelemetry/api": "^1.7.0"
+  }
+}

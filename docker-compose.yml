@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=clicker_game
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - backend
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+
+  # Redis Commander (for debugging)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      - redis
+    networks:
+      - backend
+
+  # API Service
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    ports:
+      - "${API_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/clicker_game
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/api:/app
+      - /app/node_modules
+      - ./logs/api:/app/logs
+    networks:
+      - backend
+
+  # Bot Service
+  bot:
+    build:
+      context: .
+      dockerfile: services/bot/Dockerfile
+    ports:
+      - "${BOT_PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/clicker_game
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/bot:/app
+      - /app/node_modules
+      - ./logs/bot:/app/logs
+    networks:
+      - backend
+
+  # Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/clicker_game
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/worker:/app
+      - /app/node_modules
+      - ./logs/worker:/app/logs
+    networks:
+      - backend
+
+  # WebApp
+  webapp:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - VITE_API_URL=http://nginx/api
+    depends_on:
+      - api
+    volumes:
+      - ./webapp:/app
+      - /app/node_modules
+    networks:
+      - frontend
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - api
+      - webapp
+    networks:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  frontend:
+  backend:

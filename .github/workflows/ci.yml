@@ -1,0 +1,37 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build API service
+      run: docker build -t clicker-api:latest -f services/api/Dockerfile .
+      
+    - name: Build Bot service
+      run: docker build -t clicker-bot:latest -f services/bot/Dockerfile .
+      
+    - name: Build Worker service
+      run: docker build -t clicker-worker:latest -f services/worker/Dockerfile .
+      
+    - name: Build WebApp
+      run: docker build -t clicker-webapp:latest -f webapp/Dockerfile .
+      
+    - name: Test Docker Compose configuration
+      run: docker-compose config
+      
+    - name: Run load tests
+      run: |
+        docker run --rm -v $(pwd)/k6-tests:/scripts grafana/k6:latest run /scripts/load-test.js

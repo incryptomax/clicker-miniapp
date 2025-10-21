@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  tgUserId  BigInt   @unique
+  username  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  stats UserStats?
+  
+  @@map("users")
+}
+
+model UserStats {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
+  totalClicks  Int      @default(0)
+  lastActiveAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_stats")
+}
+
+model ClickEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  delta     Int
+  timestamp DateTime @default(now())
+  requestId String?
+  
+  @@map("click_events")
+}
+
+model LeaderboardSnapshot {
+  id        Int      @id @default(autoincrement())
+  week      String
+  top20Json String
+  createdAt DateTime @default(now())
+  
+  @@map("leaderboard_snapshots")
+}
