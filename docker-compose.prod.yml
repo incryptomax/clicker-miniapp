@@ -81,6 +81,39 @@ services:
     networks:
       - backend
 
+  # Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    ports:
+      - "${WORKER_PORT:-3002}:3002"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      - redis
+      - api
+    volumes:
+      - ./logs/worker:/app/logs
+    networks:
+      - backend
+
+  # WebApp Service
+  webapp:
+    build:
+      context: .
+      dockerfile: services/webapp/Dockerfile
+    ports:
+      - "${WEBAPP_PORT:-3003}:3003"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+    networks:
+      - backend
+
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
@@ -91,6 +124,8 @@ services:
     depends_on:
       - api
       - bot
+      - worker
+      - webapp
     networks:
       - backend
 

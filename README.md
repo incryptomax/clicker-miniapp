@@ -30,22 +30,27 @@ curl http://localhost:3000/leaderboard
 
 **✅ INFRASTRUCTURE RUNNING:**
 - **API Service**: http://localhost:3000 (NestJS + TypeScript)
+- **Bot Service**: http://localhost:3001 (Telegram Bot + Telegraf)
+- **Worker Service**: http://localhost:3002 (Background Jobs + Bull Queues)
+- **WebApp Service**: http://localhost:3003 (React + Telegram Mini App)
 - **PostgreSQL**: localhost:5432 (Database)
 - **Redis**: localhost:6379 (Cache & Queues)
 - **Redis Commander**: http://localhost:8081 (Web UI)
+- **Nginx**: http://localhost (Reverse Proxy)
 
 **✅ WORKING ENDPOINTS:**
-- Health Check: `GET /health` - Returns `{"status":"healthy","timestamp":"..."}`
-- Leaderboard: `GET /leaderboard` - Returns leaderboard with ETag caching
-- Click Handler: `POST /click` - Processes user clicks with rate limiting
+- **API**: Health Check: `GET /api/health`, Leaderboard: `GET /api/leaderboard`, Click: `POST /api/click`
+- **Bot**: Health: `GET /bot/health`, Info: `GET /bot/info`, Webhook: `POST /webhook`
+- **Worker**: Health: `GET /worker/health`, Live: `GET /worker/health/live`, Ready: `GET /worker/health/ready`
+- **WebApp**: Health: `GET /webapp/health`, Game: `GET /webapp/`, Leaderboard: `GET /webapp/leaderboard`
 
 ## 🏗️ Architecture
 
 ### Microservices
-- **Bot Service**: Telegram bot with FSM (Finite State Machine)
-- **API Service**: REST API with NestJS
-- **Worker Service**: Background job processing
-- **WebApp**: React Mini App interface
+- **Bot Service**: Telegram bot with FSM (Finite State Machine) ✅
+- **API Service**: REST API with NestJS ✅
+- **Worker Service**: Background job processing with Bull Queues ✅
+- **WebApp**: React Mini App interface ✅
 
 ### Technology Stack
 - **Backend**: NestJS, TypeScript, Prisma ORM
@@ -139,13 +144,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🎯 Roadmap
 
-- [ ] Complete Bot service implementation
-- [ ] Complete Worker service implementation
-- [ ] Complete WebApp implementation
+- [x] Complete API service implementation ✅
+- [x] Complete Bot service implementation ✅
+- [x] Complete Worker service implementation ✅
+- [x] Complete WebApp implementation ✅
 - [ ] Add comprehensive testing suite
 - [ ] Deploy to production environment
+- [ ] Add Telegram Bot commands (/help, /leaderboard)
+- [ ] Configure real Telegram webhook
 
 ---
 
-**Status**: ✅ Infrastructure running, API service operational
+**Status**: ✅ All services running - API, Bot, Worker, WebApp operational
 **Last Updated**: October 2025

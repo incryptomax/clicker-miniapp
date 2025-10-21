@@ -1,21 +1,22 @@
-FROM node:18-alpine
+FROM node:18-slim
 
 WORKDIR /app
 
-# Copy shared package files first
-COPY services/shared/package*.json ./shared/
+# Install OpenSSL for Prisma (if needed)
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Copy service package files
+# Copy shared package.json and install dependencies
+COPY services/shared/package*.json ./shared/
+# Copy worker package.json and install dependencies
 COPY services/worker/package*.json ./
 
-# Install dependencies
 RUN npm install
 
-# Copy shared source code to root level for imports
-COPY services/shared ./
-
-# Copy service source code
+# Copy shared source code
+COPY services/shared ./shared/
+# Copy worker source code
 COPY services/worker .
 
-# Start the application
+RUN npm run build
+
 CMD ["npm", "run", "start"]

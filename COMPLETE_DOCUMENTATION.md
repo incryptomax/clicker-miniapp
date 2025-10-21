@@ -4,7 +4,7 @@
 
 **🚀 Production-ready Telegram clicker game: 100k+ users, adaptive rate limiting, enterprise security (Helmet/CORS/HPP), full observability (OpenTelemetry + structured logs), graceful degradation under load. Complete FSM, Mini App, Docker, k6 tests.**
 
-**✅ SUCCESSFULLY DEPLOYED AND RUNNING!** - API service, PostgreSQL, Redis, and Redis Commander are all operational.
+**✅ SUCCESSFULLY DEPLOYED AND RUNNING!** - All services (API, Bot, Worker, WebApp) with PostgreSQL, Redis, and Redis Commander are operational.
 
 ## 🎯 Project Overview
 
@@ -14,20 +14,28 @@ A production-ready Telegram clicker game with adaptive rate limiting, graceful d
 
 **✅ INFRASTRUCTURE RUNNING:**
 - **API Service**: http://localhost:3000 (NestJS + TypeScript)
+- **Bot Service**: http://localhost:3001 (Telegram Bot + Telegraf)
+- **Worker Service**: http://localhost:3002 (Background Jobs + Bull Queues)
+- **WebApp Service**: http://localhost:3003 (React + Telegram Mini App)
 - **PostgreSQL**: localhost:5432 (Database)
 - **Redis**: localhost:6379 (Cache & Queues)
 - **Redis Commander**: http://localhost:8081 (Web UI)
+- **Nginx**: http://localhost (Reverse Proxy)
 
 **✅ WORKING ENDPOINTS:**
-- Health Check: `GET /health` - Returns `{"status":"healthy","timestamp":"..."}`
-- Leaderboard: `GET /leaderboard` - Returns leaderboard with ETag caching
-- Click Handler: `POST /click` - Processes user clicks with rate limiting
+- **API**: Health Check: `GET /api/health`, Leaderboard: `GET /api/leaderboard`, Click: `POST /api/click`
+- **Bot**: Health: `GET /bot/health`, Info: `GET /bot/info`, Webhook: `POST /webhook`
+- **Worker**: Health: `GET /worker/health`, Live: `GET /worker/health/live`, Ready: `GET /worker/health/ready`
+- **WebApp**: Health: `GET /webapp/health`, Game: `GET /webapp/`, Leaderboard: `GET /webapp/leaderboard`
 
 **🔧 DEPLOYMENT NOTES:**
 - Uses `docker-compose.prod.yml` for production-like deployment
+- All services (API, Bot, Worker, WebApp) successfully implemented and running
 - Fixed Prisma compatibility issues by switching from Alpine to Ubuntu base image
 - All TypeScript compilation errors resolved
 - NestJS dependencies properly configured
+- React WebApp with Telegram Mini App integration
+- Bull Queue system for background job processing
 
 ## 🚀 Quick Start Guide
 
