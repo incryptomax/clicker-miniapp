@@ -89,6 +89,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return await this.redis.incrby(key, delta);
   }
 
+  async getGlobalClicks(): Promise<number> {
+    const key = 'global:clicks';
+    const result = await this.redis.get(key);
+    return result ? parseInt(result, 10) : 0;
+  }
+
   // Stream operations
   async addClickToStream(userId: number, delta: number, requestId: string): Promise<void> {
     const streamKey = 'clicks_stream';
@@ -127,5 +133,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async cacheClickResult(tgUserId: bigint, sequence: number, result: any): Promise<void> {
     const key = `click_result:${tgUserId}:${sequence}`;
     await this.redis.setex(key, 300, JSON.stringify(result)); // 5 minute TTL
+  }
+
+  // Username operations
+  async setUsername(userId: number, username: string): Promise<void> {
+    const key = `username:${userId}`;
+    await this.redis.setex(key, 86400, username); // 24 hour TTL
+  }
+
+  async getUsername(userId: number): Promise<string | null> {
+    const key = `username:${userId}`;
+    return await this.redis.get(key);
   }
 }

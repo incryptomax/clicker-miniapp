@@ -11,11 +11,14 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  tgUserId  BigInt   @unique
-  username  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  tgUserId        BigInt   @unique
+  username        String
+  firstName       String?
+  lastName        String?
+  telegramUsername String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
   stats UserStats?
   

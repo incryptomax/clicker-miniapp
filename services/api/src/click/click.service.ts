@@ -43,7 +43,7 @@ export class ClickService {
     private prismaService: PrismaService,
   ) {}
 
-  async processClick(tgUserId: bigint, delta: number, clientSequence?: number): Promise<ClickResponse> {
+  async processClick(tgUserId: bigint, delta: number, clientSequence?: number, userData?: any): Promise<ClickResponse> {
     return runInSpanAsync('click.process', async () => {
       try {
         // Idempotency check using client sequence
@@ -81,10 +81,13 @@ export class ClickService {
         });
 
         if (!user) {
+          // Create new user with default name
+          const defaultName = `Player_${tgUserId}`;
+            
           user = await this.prismaService.user.create({
             data: {
               tgUserId,
-              username: `user_${tgUserId}`,
+              username: defaultName,
               stats: {
                 create: {
                   totalClicks: 0,
@@ -95,6 +98,10 @@ export class ClickService {
             include: { stats: true },
           });
         }
+
+        // Always use the username from database (which can be changed via /changename)
+        // Save current database username to Redis for leaderboard
+        await this.redisService.setUsername(user.id, user.username);
 
         // Update user clicks in Redis
         const myClicks = await this.redisService.incrementUserClicks(user.id, delta);

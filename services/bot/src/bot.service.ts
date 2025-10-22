@@ -275,24 +275,35 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         await ctx.answerCbQuery('✅ Username changed!');
         
         try {
-          // Here we would update the username in the database
-          // For now, we'll just confirm the change
-          await ctx.editMessageText(
-            `✅ <b>Username changed!</b>\n\n` +
-            `New name: <b>${newUsername}</b>\n\n` +
-            `Username will be updated in the leaderboard on next refresh.`,
-            { 
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: [[
-                  {
-                    text: '🏆 View Leaderboard',
-                    callback_data: 'show_leaderboard'
-                  }
-                ]]
+         // Call API to change username using bot endpoint
+         const response = await axios.post(`${this.apiBaseUrl}/user/bot/change-username`, {
+           username: newUsername,
+           tgUserId: ctx.from.id,
+           firstName: ctx.from.first_name,
+           lastName: ctx.from.last_name,
+           telegramUsername: ctx.from.username
+         });
+
+          if (response.data.success) {
+            await ctx.editMessageText(
+              `✅ <b>Username changed!</b>\n\n` +
+              `New name: <b>${response.data.username}</b>\n\n` +
+              `Username will be updated in the leaderboard on next refresh.`,
+              { 
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [[
+                    {
+                      text: '🏆 View Leaderboard',
+                      callback_data: 'show_leaderboard'
+                    }
+                  ]]
+                }
               }
-            }
-          );
+            );
+          } else {
+            throw new Error('API returned error');
+          }
         } catch (error) {
           this.logger.error('Failed to update username:', error);
           await ctx.editMessageText('❌ Failed to change username. Please try again later.');

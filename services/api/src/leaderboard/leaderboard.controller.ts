@@ -44,6 +44,7 @@ export class LeaderboardController {
 
       res.status(HttpStatus.OK).json({
         entries: result.entries,
+        globalClicks: result.globalClicks,
         etag: result.etag,
       });
     } catch (error) {

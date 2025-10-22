@@ -37,17 +37,25 @@ export class LeaderboardService {
 
   async getLeaderboard(limit: number = 20, ifNoneMatch?: string): Promise<{
     entries: LeaderboardEntry[];
+    globalClicks: number;
     etag: string;
     isNotModified: boolean;
   }> {
     return runInSpanAsync('leaderboard.get', async () => {
       try {
-        // Get leaderboard data
-        const leaderboardData = await this.redisService.getLeaderboard(limit);
+        // Get leaderboard data and global clicks
+        const [leaderboardData, globalClicks] = await Promise.all([
+          this.redisService.getLeaderboard(limit),
+          this.redisService.getGlobalClicks()
+        ]);
+        
+        this.logger.info(`Retrieved globalClicks: ${globalClicks}`);
         
         // Generate ETag from data hash
-        const dataString = JSON.stringify(leaderboardData);
+        const dataString = JSON.stringify({ leaderboardData, globalClicks });
         const etag = `"${crypto.createHash('md5').update(dataString).digest('hex')}"`;
+        
+        this.logger.info(`Generated ETag: ${etag} from data: ${dataString}`);
         
         // Check if client has current version
         if (ifNoneMatch === etag) {
@@ -59,18 +67,24 @@ export class LeaderboardService {
           
           return {
             entries: [],
+            globalClicks: 0,
             etag,
             isNotModified: true,
           };
         }
 
-        // Transform data to LeaderboardEntry format
-        const entries: LeaderboardEntry[] = leaderboardData.map((item, index) => ({
-          rank: index + 1,
-          username: `user_${item.userId}`,
-          clicks: item.clicks,
-          tgUserId: item.userId.toString(),
-        }));
+        // Transform data to LeaderboardEntry format with real usernames
+        const entries: LeaderboardEntry[] = await Promise.all(
+          leaderboardData.map(async (item, index) => {
+            const username = await this.redisService.getUsername(item.userId) || `Player_${item.userId}`;
+            return {
+              rank: index + 1,
+              username,
+              clicks: item.clicks,
+              tgUserId: item.userId.toString(),
+            };
+          })
+        );
 
         logger.info({
           requestId: getRequestId(),
@@ -80,6 +94,7 @@ export class LeaderboardService {
 
         return {
           entries,
+          globalClicks,
           etag,
           isNotModified: false,
         };

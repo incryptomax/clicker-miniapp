@@ -22,7 +22,8 @@ export class ClickController {
     const { delta, sequence } = clickDto;
 
     try {
-      const result = await this.clickService.processClick(tgUserId, delta, sequence);
+      const userData = req.user;
+      const result = await this.clickService.processClick(tgUserId, delta, sequence, userData);
       
       // Set idempotency headers
       if (sequence !== undefined) {

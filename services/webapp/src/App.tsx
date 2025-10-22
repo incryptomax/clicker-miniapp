@@ -82,12 +82,15 @@ function App() {
     }
 
     try {
+      // Get Telegram WebApp init data
+      const initData = window.Telegram?.WebApp?.initData || ''
+      
       // Send click to API
       const response = await fetch('/api/click', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
+          'X-Telegram-Init-Data': initData
         },
         body: JSON.stringify({
           delta: 1,
