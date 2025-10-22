@@ -44,22 +44,47 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       
       this.logger.log(`User ${username} (${userId}) started the bot`);
       
-      await ctx.reply(
-        `🎮 Добро пожаловать в Clicker Mini App, ${username}!\n\n` +
-        `Нажмите кнопку ниже, чтобы начать играть:`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '🎯 Играть',
-                web_app: {
-                  url: `${process.env.WEBAPP_URL || 'http://localhost:3003'}/game`
+      // Check if we're in development mode (HTTP URL)
+      const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+      const isDevelopment = webappUrl.startsWith('http://');
+      
+      if (isDevelopment) {
+        // Development mode - send simple message with link
+        await ctx.reply(
+          `🎮 Добро пожаловать в Clicker Mini App, ${username}!\n\n` +
+          `Для локальной разработки откройте ссылку в браузере:\n` +
+          `${webappUrl}\n\n` +
+          `Или используйте команду /leaderboard для просмотра таблицы лидеров.`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: '📊 Таблица лидеров',
+                  callback_data: 'show_leaderboard'
                 }
-              }
-            ]]
+              ]]
+            }
           }
-        }
-      );
+        );
+      } else {
+        // Production mode - use Web App
+        await ctx.reply(
+          `🎮 Добро пожаловать в Clicker Mini App, ${username}!\n\n` +
+          `Нажмите кнопку ниже, чтобы начать играть:`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: '🎯 Играть',
+                  web_app: {
+                    url: `${webappUrl}/game`
+                  }
+                }
+              ]]
+            }
+          }
+        );
+      }
     });
 
     // Help command
@@ -82,7 +107,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     // Leaderboard command
     this.bot.command('leaderboard', async (ctx) => {
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/api/leaderboard?limit=10`);
+        const response = await axios.get(`${this.apiBaseUrl}/leaderboard?limit=10`);
         const leaderboard = response.data;
 
         if (!leaderboard.entries || leaderboard.entries.length === 0) {
@@ -99,21 +124,30 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
         message += `\n🎯 <b>Всего кликов:</b> ${leaderboard.globalClicks || 0}`;
 
+        // Check if we're in development mode (HTTP URL)
+        const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+        const isDevelopment = webappUrl.startsWith('http://');
+        
+        const keyboard: any[] = [[
+          {
+            text: '🔄 Обновить',
+            callback_data: 'refresh_leaderboard'
+          }
+        ]];
+        
+        if (!isDevelopment) {
+          keyboard[0].push({
+            text: '🎮 Играть',
+            web_app: {
+              url: `${webappUrl}/game`
+            }
+          });
+        }
+
         await ctx.reply(message, { 
           parse_mode: 'HTML',
           reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '🔄 Обновить',
-                callback_data: 'refresh_leaderboard'
-              },
-              {
-                text: '🎮 Играть',
-                web_app: {
-                  url: `${process.env.WEBAPP_URL || 'http://localhost:3003'}/game`
-                }
-              }
-            ]]
+            inline_keyboard: keyboard
           }
         });
       } catch (error) {
@@ -125,7 +159,44 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     // Callback query handler
     this.bot.on('callback_query', async (ctx) => {
       const callbackData = (ctx.callbackQuery as any).data;
-      if (callbackData === 'refresh_leaderboard') {
+      
+      if (callbackData === 'show_leaderboard') {
+        await ctx.answerCbQuery('📊 Загружаем таблицу лидеров...');
+        // Trigger leaderboard command
+        try {
+          const response = await axios.get(`${this.apiBaseUrl}/leaderboard?limit=10`);
+          const leaderboard = response.data;
+
+          if (!leaderboard.entries || leaderboard.entries.length === 0) {
+            await ctx.editMessageText('📊 Таблица лидеров пуста. Станьте первым!');
+            return;
+          }
+
+          let message = '🏆 <b>Топ-10 игроков:</b>\n\n';
+          
+          leaderboard.entries.forEach((entry: any, index: number) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+            message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> кликов\n`;
+          });
+
+          message += `\n🎯 <b>Всего кликов:</b> ${leaderboard.globalClicks || 0}`;
+
+          await ctx.editMessageText(message, { 
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: '🔄 Обновить',
+                  callback_data: 'refresh_leaderboard'
+                }
+              ]]
+            }
+          });
+        } catch (error) {
+          this.logger.error('Failed to get leaderboard:', error);
+          await ctx.editMessageText('❌ Не удалось загрузить таблицу лидеров. Попробуйте позже.');
+        }
+      } else if (callbackData === 'refresh_leaderboard') {
         await ctx.answerCbQuery('🔄 Обновляем...');
         // Re-run leaderboard command
         await this.bot.telegram.sendMessage(
@@ -148,6 +219,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
     if (!webhookUrl) {
       this.logger.warn('TELEGRAM_WEBHOOK_URL is not set, using polling mode');
+      this.startPolling();
+      return;
+    }
+
+    // Check if URL is HTTPS for production webhook
+    if (!webhookUrl.startsWith('https://')) {
+      this.logger.warn('Webhook URL is not HTTPS, using polling mode for local development');
+      this.startPolling();
       return;
     }
 
@@ -155,9 +234,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       await this.bot.telegram.setWebhook(`${webhookUrl}/webhook`);
       this.logger.log(`✅ Webhook set to: ${webhookUrl}/webhook`);
     } catch (error) {
-      this.logger.error('Failed to set webhook:', error);
-      throw error;
+      this.logger.error('Failed to set webhook, falling back to polling:', error);
+      this.startPolling();
     }
+  }
+
+  private startPolling() {
+    this.logger.log('🔄 Starting polling mode...');
+    this.bot.launch();
+    this.logger.log('✅ Bot polling started successfully');
   }
 
   // Method to handle webhook updates
