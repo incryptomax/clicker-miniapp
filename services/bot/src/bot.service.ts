@@ -51,15 +51,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       if (isDevelopment) {
         // Development mode - send simple message with link
         await ctx.reply(
-          `🎮 Добро пожаловать в Clicker Mini App, ${username}!\n\n` +
-          `Для локальной разработки откройте ссылку в браузере:\n` +
+          `🎮 Welcome to Clicker Mini App, ${username}!\n\n` +
+          `For local development, open the link in your browser:\n` +
           `${webappUrl}\n\n` +
-          `Или используйте команду /leaderboard для просмотра таблицы лидеров.`,
+          `Or use /leaderboard command to view the leaderboard.`,
           {
             reply_markup: {
               inline_keyboard: [[
                 {
-                  text: '📊 Таблица лидеров',
+                  text: '📊 Leaderboard',
                   callback_data: 'show_leaderboard'
                 }
               ]]
@@ -69,13 +69,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       } else {
         // Production mode - use Web App
         await ctx.reply(
-          `🎮 Добро пожаловать в Clicker Mini App, ${username}!\n\n` +
-          `Нажмите кнопку ниже, чтобы начать играть:`,
+          `🎮 Welcome to Clicker Mini App, ${username}!\n\n` +
+          `Click the button below to start playing:`,
           {
             reply_markup: {
               inline_keyboard: [[
                 {
-                  text: '🎯 Играть',
+                  text: '🎯 Play Game',
                   web_app: {
                     url: `${webappUrl}/game`
                   }
@@ -111,15 +111,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const currentUsername = ctx.from.username || ctx.from.first_name || 'User';
       
       await ctx.reply(
-        `👤 <b>Изменение имени пользователя</b>\n\n` +
-        `Текущее имя: <b>${currentUsername}</b>\n\n` +
-        `Отправьте новое имя пользователя (или используйте кнопку ниже):`,
+        `👤 <b>Change Username</b>\n\n` +
+        `Current name: <b>${currentUsername}</b>\n\n` +
+        `Send a new username (or use the button below):`,
         {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [[
               {
-                text: '📝 Ввести новое имя',
+                text: '📝 Enter New Name',
                 callback_data: 'change_username'
               }
             ]]
@@ -135,18 +135,18 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         const leaderboard = response.data;
 
         if (!leaderboard.entries || leaderboard.entries.length === 0) {
-          await ctx.reply('📊 Таблица лидеров пуста. Станьте первым!');
+          await ctx.reply('📊 Leaderboard is empty. Be the first!');
           return;
         }
 
-        let message = '🏆 <b>Топ-10 игроков:</b>\n\n';
+        let message = '🏆 <b>Top 10 Players:</b>\n\n';
         
         leaderboard.entries.forEach((entry: any, index: number) => {
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-          message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> кликов\n`;
+          message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> clicks\n`;
         });
 
-        message += `\n🎯 <b>Всего кликов:</b> ${leaderboard.globalClicks || 0}`;
+        message += `\n🎯 <b>Total Clicks:</b> ${leaderboard.globalClicks || 0}`;
 
         // Check if we're in development mode (HTTP URL)
         const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
@@ -154,14 +154,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         
         const keyboard: any[] = [[
           {
-            text: '🔄 Обновить',
+            text: '🔄 Refresh',
             callback_data: 'refresh_leaderboard'
           }
         ]];
         
         if (!isDevelopment) {
           keyboard[0].push({
-            text: '🎮 Играть',
+            text: '🎮 Play Game',
             web_app: {
               url: `${webappUrl}/game`
             }
@@ -189,20 +189,20 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       if (!message.startsWith('/') && message.length <= 50 && message.length >= 2) {
         // This could be a username change - let's ask for confirmation
         await ctx.reply(
-          `👤 <b>Подтверждение смены имени</b>\n\n` +
-          `Новое имя: <b>${message}</b>\n\n` +
-          `Вы уверены, что хотите изменить имя пользователя?`,
+          `👤 <b>Confirm Username Change</b>\n\n` +
+          `New name: <b>${message}</b>\n\n` +
+          `Are you sure you want to change your username?`,
           {
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
                 [
                   {
-                    text: '✅ Да, изменить',
+                    text: '✅ Yes, Change',
                     callback_data: `confirm_username:${message}`
                   },
                   {
-                    text: '❌ Отмена',
+                    text: '❌ Cancel',
                     callback_data: 'cancel_username'
                   }
                 ]
@@ -218,39 +218,39 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const callbackData = (ctx.callbackQuery as any).data;
       
       if (callbackData === 'change_username') {
-        await ctx.answerCbQuery('📝 Введите новое имя пользователя');
+        await ctx.answerCbQuery('📝 Enter new username');
         await ctx.reply(
-          `📝 <b>Введите новое имя пользователя:</b>\n\n` +
-          `Просто отправьте сообщение с новым именем. Например: "Игрок123"`,
+          `📝 <b>Enter new username:</b>\n\n` +
+          `Just send a message with the new name. For example: "Player123"`,
           { parse_mode: 'HTML' }
         );
       } else if (callbackData === 'show_leaderboard') {
-        await ctx.answerCbQuery('📊 Загружаем таблицу лидеров...');
+        await ctx.answerCbQuery('📊 Loading leaderboard...');
         // Trigger leaderboard command
         try {
           const response = await axios.get(`${this.apiBaseUrl}/leaderboard?limit=10`);
           const leaderboard = response.data;
 
           if (!leaderboard.entries || leaderboard.entries.length === 0) {
-            await ctx.editMessageText('📊 Таблица лидеров пуста. Станьте первым!');
+            await ctx.editMessageText('📊 Leaderboard is empty. Be the first!');
             return;
           }
 
-          let message = '🏆 <b>Топ-10 игроков:</b>\n\n';
+          let message = '🏆 <b>Top 10 Players:</b>\n\n';
           
           leaderboard.entries.forEach((entry: any, index: number) => {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-            message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> кликов\n`;
+            message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> clicks\n`;
           });
 
-          message += `\n🎯 <b>Всего кликов:</b> ${leaderboard.globalClicks || 0}`;
+          message += `\n🎯 <b>Total Clicks:</b> ${leaderboard.globalClicks || 0}`;
 
           await ctx.editMessageText(message, { 
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [[
                 {
-                  text: '🔄 Обновить',
+                  text: '🔄 Refresh',
                   callback_data: 'refresh_leaderboard'
                 }
               ]]
@@ -258,35 +258,35 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           });
         } catch (error) {
           this.logger.error('Failed to get leaderboard:', error);
-          await ctx.editMessageText('❌ Не удалось загрузить таблицу лидеров. Попробуйте позже.');
+          await ctx.editMessageText('❌ Failed to load leaderboard. Please try again later.');
         }
       } else if (callbackData === 'refresh_leaderboard') {
-        await ctx.answerCbQuery('🔄 Обновляем...');
+        await ctx.answerCbQuery('🔄 Refreshing...');
         // Re-run leaderboard command
         await this.bot.telegram.sendMessage(
           ctx.chat.id,
-          '🔄 Обновляем таблицу лидеров...'
+          '🔄 Refreshing leaderboard...'
         );
         // This would trigger the leaderboard command again
       } else if (callbackData.startsWith('confirm_username:')) {
         const newUsername = callbackData.split(':')[1];
         const userId = ctx.from.id;
         
-        await ctx.answerCbQuery('✅ Имя изменено!');
+        await ctx.answerCbQuery('✅ Username changed!');
         
         try {
           // Here we would update the username in the database
           // For now, we'll just confirm the change
           await ctx.editMessageText(
-            `✅ <b>Имя пользователя изменено!</b>\n\n` +
-            `Новое имя: <b>${newUsername}</b>\n\n` +
-            `Имя будет обновлено в таблице лидеров при следующем обновлении.`,
+            `✅ <b>Username changed!</b>\n\n` +
+            `New name: <b>${newUsername}</b>\n\n` +
+            `Username will be updated in the leaderboard on next refresh.`,
             { 
               parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [[
                   {
-                    text: '🏆 Посмотреть таблицу лидеров',
+                    text: '🏆 View Leaderboard',
                     callback_data: 'show_leaderboard'
                   }
                 ]]
@@ -295,11 +295,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           );
         } catch (error) {
           this.logger.error('Failed to update username:', error);
-          await ctx.editMessageText('❌ Не удалось изменить имя пользователя. Попробуйте позже.');
+          await ctx.editMessageText('❌ Failed to change username. Please try again later.');
         }
       } else if (callbackData === 'cancel_username') {
-        await ctx.answerCbQuery('❌ Отменено');
-        await ctx.editMessageText('❌ Смена имени отменена.');
+        await ctx.answerCbQuery('❌ Cancelled');
+        await ctx.editMessageText('❌ Username change cancelled.');
       }
     });
   }
