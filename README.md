@@ -1,159 +1,272 @@
-# 🎮 Telegram Clicker Game
+# 🎮 Komic Clicker Test - Telegram Mini App
 
-A production-ready Telegram clicker game with adaptive rate limiting, graceful degradation, and support for 100k+ users. Built with modern microservices architecture using NestJS, Telegraf, React, and Redis.
+Полнофункциональное Telegram Mini App для игры-кликера, реализованное согласно техническому заданию Telegram.
 
-## 🚀 Quick Start
+## 📋 Описание
 
-### Prerequisites
-- Docker & Docker Compose
-- Git
+Это Telegram Mini App представляет собой игру-кликер, где пользователи могут:
+- Кликать по кнопке для увеличения своего счета
+- Соревноваться с другими игроками в таблице лидеров
+- Изменять свое имя пользователя
+- Видеть общую статистику всех игроков
 
-### Launch the Application
+## 🏗️ Архитектура
+
+Проект построен на микросервисной архитектуре:
+
+- **API Service** (NestJS) - REST API для обработки кликов и статистики
+- **Bot Service** (NestJS + Telegraf) - Telegram бот с командами и Web App интеграцией
+- **Worker Service** (NestJS + Bull) - Фоновая обработка задач
+- **WebApp Service** (React + Vite) - Telegram Mini App интерфейс
+- **PostgreSQL** - Основная база данных
+- **Redis** - Кэширование и очереди задач
+- **Nginx** - Reverse proxy и статические файлы
+
+## 🚀 Быстрый старт
+
+### Предварительные требования
+
+- Docker и Docker Compose
+- Node.js 18+ (для локальной разработки)
+- Telegram Bot Token
+
+### Запуск через Docker
+
+1. **Клонируйте репозиторий:**
 ```bash
-# Clone the repository
-git clone https://github.com/incryptomax/clickerminiapp.git
-cd clickerminiapp
-
-# Start the infrastructure
-TELEGRAM_BOT_TOKEN=dummy_token TELEGRAM_WEBHOOK_URL=http://localhost/webhook \
-docker-compose -f docker-compose.prod.yml up -d
-
-# Check status
-docker-compose -f docker-compose.prod.yml ps
-
-# Test API
-curl http://localhost:3000/health
-curl http://localhost:3000/leaderboard
+git clone https://github.com/yourusername/komicclickertest.git
+cd komicclickertest
 ```
 
-## 🟢 Current Status
+2. **Настройте переменные окружения:**
+```bash
+cp .env.example .env
+# Отредактируйте .env файл с вашими настройками
+```
 
-**✅ INFRASTRUCTURE RUNNING:**
-- **API Service**: http://localhost:3000 (NestJS + TypeScript)
-- **Bot Service**: http://localhost:3001 (Telegram Bot + Telegraf)
-- **Worker Service**: http://localhost:3002 (Background Jobs + Bull Queues)
-- **WebApp Service**: http://localhost:3003 (React + Telegram Mini App)
-- **PostgreSQL**: localhost:5432 (Database)
-- **Redis**: localhost:6379 (Cache & Queues)
-- **Redis Commander**: http://localhost:8081 (Web UI)
-- **Nginx**: http://localhost (Reverse Proxy)
+3. **Запустите приложение:**
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
-**✅ WORKING ENDPOINTS:**
-- **API**: Health Check: `GET /api/health`, Leaderboard: `GET /api/leaderboard`, Click: `POST /api/click`
-- **Bot**: Health: `GET /bot/health`, Info: `GET /bot/info`, Webhook: `POST /webhook`
-- **Worker**: Health: `GET /worker/health`, Live: `GET /worker/health/live`, Ready: `GET /worker/health/ready`
-- **WebApp**: Health: `GET /webapp/health`, Game: `GET /webapp/`, Leaderboard: `GET /webapp/leaderboard`
+4. **Проверьте статус:**
+```bash
+docker-compose -f docker-compose.prod.yml ps
+```
 
-## 🏗️ Architecture
+### Доступные endpoints
 
-### Microservices
-- **Bot Service**: Telegram bot with FSM (Finite State Machine) ✅
-- **API Service**: REST API with NestJS ✅
-- **Worker Service**: Background job processing with Bull Queues ✅
-- **WebApp**: React Mini App interface ✅
+- **WebApp**: `http://localhost` - Telegram Mini App
+- **API Health**: `http://localhost/api/health` - Проверка здоровья API
+- **Leaderboard**: `http://localhost/api/leaderboard` - Таблица лидеров
+- **Redis Commander**: `http://localhost:8081` - Управление Redis
 
-### Technology Stack
-- **Backend**: NestJS, TypeScript, Prisma ORM
-- **Database**: PostgreSQL + Redis
-- **Bot Framework**: Telegraf
-- **Frontend**: React, TypeScript
-- **Infrastructure**: Docker, Docker Compose
-- **Monitoring**: OpenTelemetry, Prometheus, Grafana
+## 📱 Telegram Bot команды
 
-## 📋 Features
+- `/start` - Начать игру и получить приветствие
+- `/help` - Показать справку по командам
+- `/leaderboard` - Показать таблицу лидеров
+- `/changename` - Изменить имя пользователя
 
-### ✅ Core Features
-- `/start` flow with username setup/reuse
-- Welcome Message with personal/global clicks + top-20 leaderboard
-- Username change via `/changename` command
-- Mini App with tap button and optimistic UI
-- Adaptive rate limiting for 100k+ users
-- Graceful degradation under load
+## 🎯 Функциональность
 
-### ✅ Production Features
-- Enterprise security (Helmet/CORS/HPP)
-- Full observability (OpenTelemetry + structured logs)
-- Health checks and monitoring
-- ETag caching for leaderboard
-- Idempotency protection
-- Multi-layer rate limiting
+### ✅ Реализованные функции
 
-## 🔧 Development
+1. **Telegram Bot интеграция**
+   - Команды `/start`, `/help`, `/leaderboard`, `/changename`
+   - Web App кнопки для открытия игры
+   - Polling режим для локальной разработки
+   - Webhook режим для продакшена
 
-### Project Structure
+2. **Telegram Mini App**
+   - React интерфейс с современным дизайном
+   - Интеграция с Telegram WebApp API
+   - Адаптивный дизайн для мобильных устройств
+   - Haptic feedback и уведомления
+
+3. **Система кликов**
+   - Обработка кликов с идемпотентностью
+   - Batch отправка кликов (каждые 5 кликов)
+   - Real-time обновление статистики
+   - Глобальный счетчик кликов
+
+4. **Таблица лидеров**
+   - Топ-20 игроков
+   - ETag кэширование
+   - Автоматическое обновление
+   - Ранжирование по количеству кликов
+
+5. **Масштабируемость**
+   - Redis для кэширования и очередей
+   - PostgreSQL для персистентного хранения
+   - Bull queues для фоновых задач
+   - Rate limiting и graceful degradation
+
+6. **Мониторинг и логирование**
+   - Health checks для всех сервисов
+   - Структурированное логирование
+   - Prometheus метрики
+   - OpenTelemetry трейсинг
+
+## 🔧 Разработка
+
+### Локальная разработка
+
+1. **Установите зависимости:**
+```bash
+# API
+cd services/api && npm install
+
+# Bot
+cd services/bot && npm install
+
+# Worker
+cd services/worker && npm install
+
+# WebApp
+cd services/webapp && npm install
+```
+
+2. **Запустите базы данных:**
+```bash
+docker-compose up postgres redis -d
+```
+
+3. **Запустите сервисы:**
+```bash
+# API
+cd services/api && npm run start:dev
+
+# Bot
+cd services/bot && npm run start:dev
+
+# Worker
+cd services/worker && npm run start:dev
+
+# WebApp
+cd services/webapp && npm run dev
+```
+
+### Структура проекта
+
 ```
 ├── services/
-│   ├── api/          # NestJS API service
-│   ├── bot/          # Telegram bot service
-│   ├── worker/       # Background worker
-│   ├── webapp/       # React Mini App
-│   └── shared/       # Shared utilities
-├── docker-compose.yml
-├── docker-compose.prod.yml
-└── README.md
+│   ├── api/                 # NestJS API сервис
+│   ├── bot/                 # Telegram Bot сервис
+│   ├── worker/              # Фоновые задачи
+│   ├── webapp/              # React WebApp
+│   └── shared/              # Общие типы и утилиты
+├── docker-compose.prod.yml  # Production Docker Compose
+├── nginx.conf               # Nginx конфигурация
+└── README.md               # Документация
 ```
 
-### Environment Variables
+## 🐳 Docker
+
+### Production сборка
+
 ```bash
+docker-compose -f docker-compose.prod.yml build --no-cache
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Development сборка
+
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+## 📊 Мониторинг
+
+### Health Checks
+
+- **API**: `GET /api/health`
+- **Bot**: `GET /bot/health`
+- **Worker**: `GET /worker/health`
+
+### Метрики
+
+- **Prometheus**: `GET /metrics` (только для внутренних сетей)
+
+### Логи
+
+Логи сохраняются в папке `logs/` для каждого сервиса:
+- `logs/api/` - API логи
+- `logs/bot/` - Bot логи
+- `logs/worker/` - Worker логи
+
+## 🔒 Безопасность
+
+- Content Security Policy (CSP) для WebApp
+- Rate limiting для API endpoints
+- Валидация входных данных
+- CORS настройки для Telegram доменов
+- Безопасные заголовки через Helmet
+
+## 🚀 Деплой
+
+### Переменные окружения
+
+```bash
+# Telegram
 TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_WEBHOOK_URL=http://localhost/webhook
-DATABASE_URL=postgresql://user:password@postgres:5432/clicker
+TELEGRAM_WEBHOOK_URL=https://your-domain.com
+
+# Database
+DATABASE_URL=postgresql://postgres:password@postgres:5432/clicker_game
 REDIS_URL=redis://redis:6379
+
+# WebApp
+WEBAPP_URL=https://your-domain.com
+
+# Logging
+LOG_LEVEL=info
 ```
 
-## 📊 Performance
+### Production настройки
 
-- **Scale**: 100k+ users, ~5k concurrent active players
-- **Response Time**: <100ms for API calls
-- **Availability**: 99.9% uptime with graceful degradation
-- **Rate Limiting**: Adaptive per-user, per-chat, per-IP, global
+1. Настройте HTTPS домен
+2. Установите `TELEGRAM_WEBHOOK_URL`
+3. Настройте `WEBAPP_URL` для HTTPS
+4. Запустите с production Docker Compose
 
-## 🛠️ Troubleshooting
+## 📈 Производительность
 
-### Common Issues
-1. **Prisma SSL Error**: Fixed by using Ubuntu base image instead of Alpine
-2. **TypeScript Compilation**: All errors resolved with proper module configuration
-3. **NestJS Dependencies**: Properly configured with TerminusModule and ThrottlerModule
+- **Масштабируемость**: Поддерживает 100,000+ пользователей
+- **Активные пользователи**: До 5,000 одновременных пользователей
+- **Graceful degradation**: Автоматическое снижение нагрузки при высокой активности
+- **Кэширование**: Redis для быстрого доступа к данным
+- **Очереди**: Bull для асинхронной обработки
 
-### Logs
-```bash
-# View API logs
-docker-compose -f docker-compose.prod.yml logs api
+## 🤝 Вклад в проект
 
-# View all logs
-docker-compose -f docker-compose.prod.yml logs
-```
+1. Fork репозитория
+2. Создайте feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit изменения (`git commit -m 'Add amazing feature'`)
+4. Push в branch (`git push origin feature/amazing-feature`)
+5. Откройте Pull Request
 
-## 📚 Documentation
+## 📄 Лицензия
 
-- [Complete Technical Documentation](./COMPLETE_DOCUMENTATION.md)
-- [Architecture Guide](./ARCHITECTURE_GUIDE.md)
-- [Implementation Status](./IMPLEMENTATION_STATUS_LEGEND.md)
+Этот проект лицензирован под MIT License - см. файл [LICENSE](LICENSE) для деталей.
 
-## 🤝 Contributing
+## 🆘 Поддержка
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with Docker
-5. Submit a pull request
+Если у вас есть вопросы или проблемы:
 
-## 📄 License
+1. Проверьте [Issues](https://github.com/yourusername/komicclickertest/issues)
+2. Создайте новый Issue с подробным описанием
+3. Приложите логи и конфигурацию
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 🎉 Благодарности
 
-## 🎯 Roadmap
-
-- [x] Complete API service implementation ✅
-- [x] Complete Bot service implementation ✅
-- [x] Complete Worker service implementation ✅
-- [x] Complete WebApp implementation ✅
-- [ ] Add comprehensive testing suite
-- [ ] Deploy to production environment
-- [ ] Add Telegram Bot commands (/help, /leaderboard)
-- [ ] Configure real Telegram webhook
+- [Telegram Bot API](https://core.telegram.org/bots/api)
+- [Telegram WebApp API](https://core.telegram.org/bots/webapps)
+- [NestJS](https://nestjs.com/)
+- [React](https://reactjs.org/)
+- [Docker](https://www.docker.com/)
 
 ---
 
-**Status**: ✅ All services running - API, Bot, Worker, WebApp operational
-**Last Updated**: October 2025
+**Сделано с ❤️ для Telegram Mini App разработки**

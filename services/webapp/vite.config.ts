@@ -11,10 +11,11 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3003,
+    port: 3004,
     hmr: {
-      port: 3003,
+      port: 3004,
     },
+    allowedHosts: 'all',
   },
   build: {
     outDir: 'dist',

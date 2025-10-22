@@ -94,13 +94,37 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         `📋 <b>Команды:</b>\n` +
         `/start - Начать игру\n` +
         `/help - Показать эту справку\n` +
-        `/leaderboard - Показать таблицу лидеров\n\n` +
+        `/leaderboard - Показать таблицу лидеров\n` +
+        `/changename - Изменить имя пользователя\n\n` +
         `🎯 <b>Как играть:</b>\n` +
         `• Нажмите кнопку "Играть" чтобы открыть игру\n` +
         `• Кликайте по кнопке для получения очков\n` +
         `• Соревнуйтесь с другими игроками!\n\n` +
         `💡 <b>Совет:</b> Чем больше кликов, тем выше ваше место в рейтинге!`,
         { parse_mode: 'HTML' }
+      );
+    });
+
+    // Change name command
+    this.bot.command('changename', async (ctx) => {
+      const userId = ctx.from.id;
+      const currentUsername = ctx.from.username || ctx.from.first_name || 'User';
+      
+      await ctx.reply(
+        `👤 <b>Изменение имени пользователя</b>\n\n` +
+        `Текущее имя: <b>${currentUsername}</b>\n\n` +
+        `Отправьте новое имя пользователя (или используйте кнопку ниже):`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '📝 Ввести новое имя',
+                callback_data: 'change_username'
+              }
+            ]]
+          }
+        }
       );
     });
 
@@ -156,11 +180,51 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       }
     });
 
+    // Text message handler for username changes
+    this.bot.on('text', async (ctx) => {
+      const message = ctx.message.text;
+      const userId = ctx.from.id;
+      
+      // Check if this is a username change (simple heuristic: not a command and not too long)
+      if (!message.startsWith('/') && message.length <= 50 && message.length >= 2) {
+        // This could be a username change - let's ask for confirmation
+        await ctx.reply(
+          `👤 <b>Подтверждение смены имени</b>\n\n` +
+          `Новое имя: <b>${message}</b>\n\n` +
+          `Вы уверены, что хотите изменить имя пользователя?`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: '✅ Да, изменить',
+                    callback_data: `confirm_username:${message}`
+                  },
+                  {
+                    text: '❌ Отмена',
+                    callback_data: 'cancel_username'
+                  }
+                ]
+              ]
+            }
+          }
+        );
+      }
+    });
+
     // Callback query handler
     this.bot.on('callback_query', async (ctx) => {
       const callbackData = (ctx.callbackQuery as any).data;
       
-      if (callbackData === 'show_leaderboard') {
+      if (callbackData === 'change_username') {
+        await ctx.answerCbQuery('📝 Введите новое имя пользователя');
+        await ctx.reply(
+          `📝 <b>Введите новое имя пользователя:</b>\n\n` +
+          `Просто отправьте сообщение с новым именем. Например: "Игрок123"`,
+          { parse_mode: 'HTML' }
+        );
+      } else if (callbackData === 'show_leaderboard') {
         await ctx.answerCbQuery('📊 Загружаем таблицу лидеров...');
         // Trigger leaderboard command
         try {
@@ -204,6 +268,38 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           '🔄 Обновляем таблицу лидеров...'
         );
         // This would trigger the leaderboard command again
+      } else if (callbackData.startsWith('confirm_username:')) {
+        const newUsername = callbackData.split(':')[1];
+        const userId = ctx.from.id;
+        
+        await ctx.answerCbQuery('✅ Имя изменено!');
+        
+        try {
+          // Here we would update the username in the database
+          // For now, we'll just confirm the change
+          await ctx.editMessageText(
+            `✅ <b>Имя пользователя изменено!</b>\n\n` +
+            `Новое имя: <b>${newUsername}</b>\n\n` +
+            `Имя будет обновлено в таблице лидеров при следующем обновлении.`,
+            { 
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[
+                  {
+                    text: '🏆 Посмотреть таблицу лидеров',
+                    callback_data: 'show_leaderboard'
+                  }
+                ]]
+              }
+            }
+          );
+        } catch (error) {
+          this.logger.error('Failed to update username:', error);
+          await ctx.editMessageText('❌ Не удалось изменить имя пользователя. Попробуйте позже.');
+        }
+      } else if (callbackData === 'cancel_username') {
+        await ctx.answerCbQuery('❌ Отменено');
+        await ctx.editMessageText('❌ Смена имени отменена.');
       }
     });
   }

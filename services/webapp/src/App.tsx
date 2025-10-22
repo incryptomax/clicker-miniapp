@@ -1,97 +1,117 @@
-import { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import styled, { ThemeProvider, createGlobalStyle } from 'styled-components'
-import { useTelegram } from './hooks/useTelegram'
-import { useAppStore } from './store/appStore'
-import GamePage from './pages/GamePage'
-import LeaderboardPage from './pages/LeaderboardPage'
-import LoadingScreen from './components/LoadingScreen'
-
-// Global styles
-const GlobalStyle = createGlobalStyle`
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: var(--tg-theme-bg-color, #ffffff);
-    color: var(--tg-theme-text-color, #000000);
-    overflow-x: hidden;
-  }
-
-  #root {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-`
-
-// Theme
-const theme = {
-  colors: {
-    primary: '#2481cc',
-    secondary: '#6c757d',
-    success: '#28a745',
-    danger: '#dc3545',
-    warning: '#ffc107',
-    info: '#17a2b8',
-    light: '#f8f9fa',
-    dark: '#343a40',
-  },
-  spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
-  },
-  borderRadius: {
-    sm: '4px',
-    md: '8px',
-    lg: '12px',
-  },
-}
-
-const AppContainer = styled.div`
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--tg-theme-bg-color, #ffffff);
-  color: var(--tg-theme-text-color, #000000);
-`
+import { useState, useEffect } from 'react'
 
 function App() {
-  const { initTelegram, isReady } = useTelegram()
-  const { isLoading, initializeApp } = useAppStore()
+  const [time, setTime] = useState(new Date().toLocaleTimeString())
+  const [telegramStatus, setTelegramStatus] = useState('Checking...')
+  const [userInfo, setUserInfo] = useState('')
 
   useEffect(() => {
-    initTelegram()
-    initializeApp()
-  }, [initTelegram, initializeApp])
+    // Update time every second
+    const interval = setInterval(() => {
+      setTime(new Date().toLocaleTimeString())
+    }, 1000)
 
-  if (!isReady || isLoading) {
-    return <LoadingScreen />
+    // Check Telegram WebApp
+    if (window.Telegram?.WebApp) {
+      setTelegramStatus('Available')
+      
+      // Initialize Telegram WebApp
+      window.Telegram.WebApp.ready()
+      window.Telegram.WebApp.expand()
+      
+      // Get user info
+      const user = window.Telegram.WebApp.initDataUnsafe?.user
+      if (user) {
+        setUserInfo(`User ID: ${user.id}`)
+      } else {
+        setUserInfo('No user data')
+      }
+    } else {
+      setTelegramStatus('Not Available')
+      setUserInfo('Development Mode')
+    }
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const testClick = () => {
+    alert('Button clicked! React WebApp is working!')
+  }
+
+  const showAlert = () => {
+    alert('This is a test alert from React WebApp!')
   }
 
   return (
-    <ThemeProvider theme={theme}>
-      <GlobalStyle />
-      <AppContainer>
-        <Router>
-          <Routes>
-            <Route path="/" element={<GamePage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-          </Routes>
-        </Router>
-      </AppContainer>
-    </ThemeProvider>
+    <div style={{ 
+      padding: '20px', 
+      textAlign: 'center',
+      backgroundColor: '#f0f0f0',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '40px',
+        borderRadius: '10px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        maxWidth: '400px',
+        width: '100%'
+      }}>
+        <h1 style={{ color: '#333', marginBottom: '20px' }}>🎮 Komic Clicker Test</h1>
+        <p>React version - Working!</p>
+        
+        <div style={{
+          margin: '20px 0',
+          padding: '15px',
+          background: '#e9ecef',
+          borderRadius: '5px',
+          textAlign: 'left'
+        }}>
+          <p><strong>Status:</strong> <span style={{ fontWeight: 'bold', color: '#28a745' }}>Ready</span></p>
+          <p><strong>Time:</strong> {time}</p>
+          <p><strong>Telegram WebApp:</strong> {telegramStatus}</p>
+          <p><strong>User Info:</strong> {userInfo}</p>
+        </div>
+        
+        <button 
+          style={{
+            padding: '15px 30px',
+            fontSize: '18px',
+            background: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            margin: '10px',
+            width: '100%'
+          }}
+          onClick={testClick}
+        >
+          Test Click
+        </button>
+        
+        <button 
+          style={{
+            padding: '15px 30px',
+            fontSize: '18px',
+            background: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            margin: '10px',
+            width: '100%'
+          }}
+          onClick={showAlert}
+        >
+          Show Alert
+        </button>
+      </div>
+    </div>
   )
 }
 

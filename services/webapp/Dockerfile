@@ -1,24 +1,26 @@
 # Build stage
-FROM node:18-slim as builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
 # Copy package files
+COPY services/shared/package*.json ./shared/
 COPY services/webapp/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy source code
+COPY services/shared ./shared
 COPY services/webapp .
 
-# Build the app
+# Build the application
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built app to nginx
+# Copy built React app
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
