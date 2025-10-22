@@ -23,6 +23,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     this.setupErrorHandling();
 
     try {
+      await this.setBotCommands();
       await this.setWebhook();
       this.logger.log('✅ Bot service initialized successfully');
     } catch (error) {
@@ -77,7 +78,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
                 {
                   text: '🎯 Play Game',
                   web_app: {
-                    url: `${webappUrl}/game`
+                    url: `${webappUrl}/`
                   }
                 }
               ]]
@@ -90,17 +91,18 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     // Help command
     this.bot.help(async (ctx) => {
       await ctx.reply(
-        `🎮 <b>Clicker Mini App - Помощь</b>\n\n` +
-        `📋 <b>Команды:</b>\n` +
-        `/start - Начать игру\n` +
-        `/help - Показать эту справку\n` +
-        `/leaderboard - Показать таблицу лидеров\n` +
-        `/changename - Изменить имя пользователя\n\n` +
-        `🎯 <b>Как играть:</b>\n` +
-        `• Нажмите кнопку "Играть" чтобы открыть игру\n` +
-        `• Кликайте по кнопке для получения очков\n` +
-        `• Соревнуйтесь с другими игроками!\n\n` +
-        `💡 <b>Совет:</b> Чем больше кликов, тем выше ваше место в рейтинге!`,
+        `🎮 <b>Clicker Mini App - Help</b>\n\n` +
+        `📋 <b>Commands:</b>\n` +
+        `/start - Start the game\n` +
+        `/help - Show this help\n` +
+        `/leaderboard - Show the leaderboard\n` +
+        `/changename - Change your username\n` +
+        `/stats - View your statistics\n\n` +
+        `🎯 <b>How to play:</b>\n` +
+        `• Press "Play Game" button to open the game\n` +
+        `• Click the button to get points\n` +
+        `• Compete with other players!\n\n` +
+        `💡 <b>Tip:</b> The more clicks, the higher your rank!`,
         { parse_mode: 'HTML' }
       );
     });
@@ -163,7 +165,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           keyboard[0].push({
             text: '🎮 Play Game',
             web_app: {
-              url: `${webappUrl}/game`
+              url: `${webappUrl}/`
             }
           });
         }
@@ -176,7 +178,54 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         });
       } catch (error) {
         this.logger.error('Failed to get leaderboard:', error);
-        await ctx.reply('❌ Не удалось загрузить таблицу лидеров. Попробуйте позже.');
+        await ctx.reply('❌ Failed to load leaderboard. Please try again later.');
+      }
+    });
+
+    // Stats command
+    this.bot.command('stats', async (ctx) => {
+      try {
+        const userId = ctx.from.id;
+        
+        // Get user's clicks from Redis
+        const userClicks = await this.redisService.getUserClicks(userId);
+        
+        // Get global clicks
+        const globalClicks = await this.redisService.getGlobalClicks();
+        
+        // Get leaderboard to find user's rank
+        const response = await axios.get(`${this.apiBaseUrl}/leaderboard`);
+        const leaderboard = response.data.entries || [];
+        
+        const userRank = leaderboard.findIndex(player => player.tgUserId === userId.toString()) + 1;
+        
+        let message = '📊 <b>Your Statistics</b>\n\n';
+        message += `👤 <b>Your Clicks:</b> ${userClicks}\n`;
+        message += `🌍 <b>Global Clicks:</b> ${globalClicks}\n`;
+        
+        if (userRank > 0) {
+          message += `🏆 <b>Your Rank:</b> #${userRank}\n`;
+        } else {
+          message += `🏆 <b>Your Rank:</b> Not ranked yet\n`;
+        }
+        
+        message += `\n💡 <i>Keep clicking to improve your rank!</i>`;
+        
+        const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+        const keyboard = [[
+          { text: '🎮 Play Game', web_app: { url: `${webappUrl}/` } },
+          { text: '🏆 Leaderboard', callback_data: 'show_leaderboard' }
+        ]];
+        
+        await ctx.reply(message, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } catch (error) {
+        this.logger.error('Failed to get user stats:', error);
+        await ctx.reply('❌ Failed to get your statistics. Please try again later.');
       }
     });
 
@@ -315,10 +364,27 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async setBotCommands() {
+    try {
+      const commands = [
+        { command: 'start', description: '🚀 Start the Clicker Game' },
+        { command: 'help', description: '❓ Get help and instructions' },
+        { command: 'changename', description: '✏️ Change your display name' },
+        { command: 'leaderboard', description: '🏆 View the leaderboard' },
+        { command: 'stats', description: '📊 View your statistics' }
+      ];
+
+      await this.bot.telegram.setMyCommands(commands);
+      this.logger.log('✅ Bot commands set successfully');
+    } catch (error) {
+      this.logger.error('Failed to set bot commands:', error);
+    }
+  }
+
   private setupErrorHandling() {
     this.bot.catch((err, ctx) => {
       this.logger.error('Bot error:', err);
-      ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
+      ctx.reply('❌ An error occurred. Please try again later.');
     });
   }
 

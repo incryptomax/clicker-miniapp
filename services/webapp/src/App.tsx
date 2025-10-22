@@ -21,6 +21,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [time, setTime] = useState(new Date().toLocaleTimeString())
+  const [version] = useState('v2.0.0') // Добавляем версию для кэширования
 
   useEffect(() => {
     // Update time every second
@@ -228,6 +229,7 @@ function App() {
         }}>
           <div>Status: Ready • Time: {time}</div>
           <div>Telegram WebApp: {window.Telegram?.WebApp ? 'Connected' : 'Not Available'}</div>
+          <div>Version: {version} • User: {user ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Unknown'}</div>
         </div>
       </div>
     </div>

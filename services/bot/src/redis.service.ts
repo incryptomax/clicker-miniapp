@@ -53,6 +53,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getUserClicks(userId: number): Promise<number> {
+    const key = `user:${userId}:clicks`;
+    const result = await this.client.get(key);
+    return result ? parseInt(result, 10) : 0;
+  }
+
+  async getGlobalClicks(): Promise<number> {
+    const key = 'global:clicks';
+    const result = await this.client.get(key);
+    return result ? parseInt(result, 10) : 0;
+  }
+
   async del(key: string): Promise<number> {
     return await this.client.del(key);
   }
