@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Res, HttpStatus, Get, Param } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Request, Response } from 'express';
@@ -39,11 +39,48 @@ export class BotChangeUsernameDto {
 }
 
 @Controller('user')
-@UseGuards(AuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @Get(':tgUserId')
+  async getUserByTgId(
+    @Param('tgUserId') tgUserId: string,
+    @Res() res: Response,
+  ) {
+    const requestId = getRequestId();
+    
+    try {
+      const user = await this.userService.getUserByTgId(BigInt(tgUserId));
+      
+      if (!user) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          error: 'User not found'
+        });
+      }
+
+      res.status(HttpStatus.OK).json({
+        id: user.id,
+        tgUserId: user.tgUserId.toString(),
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        telegramUsername: user.telegramUsername
+      });
+    } catch (error) {
+      logger.error({
+        requestId,
+        tgUserId,
+        error: error.message,
+      }, 'Get user by Telegram ID error');
+
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        error: 'Failed to get user'
+      });
+    }
+  }
+
   @Post('change-username')
+  @UseGuards(AuthGuard)
   async changeUsername(
     @Body() changeUsernameDto: ChangeUsernameDto,
     @Req() req: Request,

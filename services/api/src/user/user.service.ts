@@ -116,6 +116,24 @@ export class UserService {
     return customUsername || 'Unknown User';
   }
 
+  async getUserByTgId(tgUserId: bigint): Promise<any | null> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { tgUserId },
+      });
+
+      return user;
+    } catch (error) {
+      logger.error({
+        requestId: getRequestId(),
+        tgUserId: tgUserId.toString(),
+        error: error.message,
+      }, 'Failed to get user by Telegram ID');
+
+      throw error;
+    }
+  }
+
   async getUserInfo(tgUserId: bigint): Promise<{ username: string; totalClicks: number } | null> {
     try {
       const user = await this.prismaService.user.findUnique({

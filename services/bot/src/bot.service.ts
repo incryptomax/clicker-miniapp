@@ -51,15 +51,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       
       if (isDevelopment) {
         // Development mode - send simple message with link
-        await ctx.reply(
+      await ctx.reply(
           `🎮 Welcome to Clicker Mini App, ${username}!\n\n` +
           `For local development, open the link in your browser:\n` +
           `${webappUrl}\n\n` +
           `Or use /leaderboard command to view the leaderboard.`,
-          {
-            reply_markup: {
-              inline_keyboard: [[
-                {
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              {
                   text: '📊 Leaderboard',
                   callback_data: 'show_leaderboard'
                 }
@@ -77,14 +77,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
               inline_keyboard: [[
                 {
                   text: '🎯 Play Game',
-                  web_app: {
+                web_app: {
                     url: `${webappUrl}/`
-                  }
                 }
-              ]]
-            }
+              }
+            ]]
           }
-        );
+        }
+      );
       }
     });
 
@@ -137,37 +137,61 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         const leaderboard = response.data;
 
         if (!leaderboard.entries || leaderboard.entries.length === 0) {
-          await ctx.reply('📊 Leaderboard is empty. Be the first!');
+          await ctx.reply(
+            '🏆 <b>Leaderboard</b>\n\n' +
+            '📊 <i>No players yet!</i>\n\n' +
+            '🎯 <b>Be the first to start clicking!</b>\n' +
+            'Press the button below to play:',
+            {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[
+                  {
+                    text: '🎮 Start Playing',
+                    web_app: { url: `${process.env.WEBAPP_URL || 'http://localhost:3003'}/` }
+                  }
+                ]]
+              }
+            }
+          );
           return;
         }
 
-        let message = '🏆 <b>Top 10 Players:</b>\n\n';
+        let message = '🏆 <b>Top Players Leaderboard</b>\n\n';
         
         leaderboard.entries.forEach((entry: any, index: number) => {
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-          message += `${medal} <b>${index + 1}.</b> ${entry.username}: <b>${entry.clicks}</b> clicks\n`;
+          const rank = index + 1;
+          message += `${medal} <b>#${rank}</b> ${entry.username}\n`;
+          message += `   💥 <i>${entry.clicks} clicks</i>\n\n`;
         });
 
-        message += `\n🎯 <b>Total Clicks:</b> ${leaderboard.globalClicks || 0}`;
+        message += `🌍 <b>Total Global Clicks:</b> ${leaderboard.globalClicks || 0}\n`;
+        message += `👥 <b>Active Players:</b> ${leaderboard.entries.length}`;
 
-        // Check if we're in development mode (HTTP URL)
         const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
         const isDevelopment = webappUrl.startsWith('http://');
         
-        const keyboard: any[] = [[
-          {
-            text: '🔄 Refresh',
-            callback_data: 'refresh_leaderboard'
-          }
-        ]];
+        const keyboard: any[] = [
+          [
+            {
+              text: '🔄 Refresh',
+              callback_data: 'refresh_leaderboard'
+            },
+            {
+              text: '📊 My Stats',
+              callback_data: 'show_my_stats'
+            }
+          ]
+        ];
         
         if (!isDevelopment) {
-          keyboard[0].push({
-            text: '🎮 Play Game',
-            web_app: {
-              url: `${webappUrl}/`
+          keyboard.push([
+            {
+              text: '🎮 Play Game',
+              web_app: { url: `${webappUrl}/` }
             }
-          });
+          ]);
         }
 
         await ctx.reply(message, { 
@@ -178,7 +202,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         });
       } catch (error) {
         this.logger.error('Failed to get leaderboard:', error);
-        await ctx.reply('❌ Failed to load leaderboard. Please try again later.');
+        await ctx.reply(
+          '❌ <b>Oops! Something went wrong</b>\n\n' +
+          'Unable to load leaderboard right now.\n' +
+          'Please try again in a moment.',
+          { parse_mode: 'HTML' }
+        );
       }
     });
 
@@ -187,17 +216,41 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       try {
         const userId = ctx.from.id;
         
-        // Get user's clicks from Redis
-        const userClicks = await this.redisService.getUserClicks(userId);
+        // Get user's clicks from Redis by finding the internal user ID first
+        let userClicks = 0;
+        
+        // Try to find user in database to get internal ID
+        try {
+          this.logger.log(`🔍 Looking for user with Telegram ID: ${userId}`);
+          this.logger.log(`🔍 API URL: ${this.apiBaseUrl}/user/${userId}`);
+          const userResponse = await axios.get(`${this.apiBaseUrl}/user/${userId}`);
+          this.logger.log(`✅ User found: ${JSON.stringify(userResponse.data)}`);
+          if (userResponse.data && userResponse.data.id) {
+            const internalUserId = userResponse.data.id;
+            this.logger.log(`🔍 Getting clicks for internal user ID: ${internalUserId}`);
+            userClicks = await this.redisService.getUserClicks(internalUserId);
+            this.logger.log(`✅ User clicks: ${userClicks}`);
+          }
+        } catch (error) {
+          this.logger.error(`❌ Failed to get user from API: ${error.message}`);
+          this.logger.error(`❌ Error details: ${JSON.stringify(error.response?.data || error.message)}`);
+          // If user not found in API, try direct Redis lookup by Telegram ID
+          this.logger.log(`🔍 Trying direct Redis lookup for Telegram ID: ${userId}`);
+          userClicks = await this.redisService.getUserClicks(userId);
+          this.logger.log(`✅ Direct Redis clicks: ${userClicks}`);
+        }
         
         // Get global clicks
         const globalClicks = await this.redisService.getGlobalClicks();
         
         // Get leaderboard to find user's rank
+        this.logger.log(`🔍 Getting leaderboard to find user rank...`);
         const response = await axios.get(`${this.apiBaseUrl}/leaderboard`);
         const leaderboard = response.data.entries || [];
+        this.logger.log(`✅ Leaderboard entries: ${leaderboard.length}`);
         
         const userRank = leaderboard.findIndex(player => player.tgUserId === userId.toString()) + 1;
+        this.logger.log(`🔍 User rank calculation: tgUserId=${userId}, found at index=${leaderboard.findIndex(player => player.tgUserId === userId.toString())}, rank=${userRank}`);
         
         let message = '📊 <b>Your Statistics</b>\n\n';
         message += `👤 <b>Your Clicks:</b> ${userClicks}\n`;
@@ -311,12 +364,160 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         }
       } else if (callbackData === 'refresh_leaderboard') {
         await ctx.answerCbQuery('🔄 Refreshing...');
-        // Re-run leaderboard command
-        await this.bot.telegram.sendMessage(
-          ctx.chat.id,
-          '🔄 Refreshing leaderboard...'
-        );
-        // This would trigger the leaderboard command again
+        
+        try {
+          // Show loading state
+          await ctx.editMessageText('🔄 <b>Refreshing leaderboard...</b>', { 
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: '⏳ Loading...',
+                  callback_data: 'loading'
+                }
+              ]]
+            }
+          });
+
+          // Get fresh data
+          const response = await axios.get(`${this.apiBaseUrl}/leaderboard?limit=10`);
+          const leaderboard = response.data;
+
+          if (!leaderboard.entries || leaderboard.entries.length === 0) {
+            await ctx.editMessageText(
+              '🏆 <b>Leaderboard</b>\n\n' +
+              '📊 <i>No players yet!</i>\n\n' +
+              '🎯 <b>Be the first to start clicking!</b>',
+              { 
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [[
+                    {
+                      text: '🎮 Start Playing',
+                      web_app: { url: `${process.env.WEBAPP_URL || 'http://localhost:3003'}/` }
+                    }
+                  ]]
+                }
+              }
+            );
+            return;
+          }
+
+          let message = '🏆 <b>Top Players Leaderboard</b>\n\n';
+          
+          leaderboard.entries.forEach((entry: any, index: number) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+            const rank = index + 1;
+            message += `${medal} <b>#${rank}</b> ${entry.username}\n`;
+            message += `   💥 <i>${entry.clicks} clicks</i>\n\n`;
+          });
+
+          message += `🌍 <b>Total Global Clicks:</b> ${leaderboard.globalClicks || 0}\n`;
+          message += `👥 <b>Active Players:</b> ${leaderboard.entries.length}`;
+
+          const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+          const isDevelopment = webappUrl.startsWith('http://');
+          
+          const keyboard: any[] = [
+            [
+              {
+                text: '🔄 Refresh',
+                callback_data: 'refresh_leaderboard'
+              },
+              {
+                text: '📊 My Stats',
+                callback_data: 'show_my_stats'
+              }
+            ]
+          ];
+          
+          if (!isDevelopment) {
+            keyboard.push([
+              {
+                text: '🎮 Play Game',
+                web_app: { url: `${webappUrl}/` }
+              }
+            ]);
+          }
+
+          await ctx.editMessageText(message, { 
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        } catch (error) {
+          this.logger.error('Failed to refresh leaderboard:', error);
+          await ctx.editMessageText(
+            '❌ <b>Oops! Something went wrong</b>\n\n' +
+            'Unable to refresh leaderboard right now.\n' +
+            'Please try again in a moment.',
+            { 
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[
+                  {
+                    text: '🔄 Try Again',
+                    callback_data: 'refresh_leaderboard'
+                  }
+                ]]
+              }
+            }
+          );
+        }
+      } else if (callbackData === 'show_my_stats') {
+        await ctx.answerCbQuery('📊 Loading your stats...');
+        
+        try {
+          const userId = ctx.from.id;
+          
+          // Get user's clicks from Redis
+          const userClicks = await this.redisService.getUserClicks(userId);
+          
+          // Get global clicks
+          const globalClicks = await this.redisService.getGlobalClicks();
+          
+          // Get leaderboard to find user's rank
+          const response = await axios.get(`${this.apiBaseUrl}/leaderboard`);
+          const leaderboard = response.data.entries || [];
+          
+          const userRank = leaderboard.findIndex(player => player.tgUserId === userId.toString()) + 1;
+          
+          let message = '📊 <b>Your Statistics</b>\n\n';
+          message += `👤 <b>Your Clicks:</b> ${userClicks}\n`;
+          message += `🌍 <b>Global Clicks:</b> ${globalClicks}\n`;
+          
+          if (userRank > 0) {
+            message += `🏆 <b>Your Rank:</b> #${userRank}\n`;
+          } else {
+            message += `🏆 <b>Your Rank:</b> Not ranked yet\n`;
+          }
+          
+          message += `\n💡 <i>Keep clicking to improve your rank!</i>`;
+          
+          const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+          const keyboard = [
+            [
+              { text: '🎮 Play Game', web_app: { url: `${webappUrl}/` } },
+              { text: '🏆 Leaderboard', callback_data: 'show_leaderboard' }
+            ]
+          ];
+          
+          await ctx.editMessageText(message, {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        } catch (error) {
+          this.logger.error('Failed to get user stats:', error);
+          await ctx.editMessageText(
+            '❌ <b>Oops! Something went wrong</b>\n\n' +
+            'Unable to load your stats right now.\n' +
+            'Please try again in a moment.',
+            { parse_mode: 'HTML' }
+          );
+        }
       } else if (callbackData.startsWith('confirm_username:')) {
         const newUsername = callbackData.split(':')[1];
         const userId = ctx.from.id;

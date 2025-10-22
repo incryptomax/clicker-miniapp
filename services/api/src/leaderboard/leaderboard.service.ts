@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { PrismaService } from '../database/prisma.service';
 import { getRequestId } from '../middleware/request-id.middleware';
 import { logger } from '../middleware/logging.middleware';
 import { runInSpanAsync } from '../utils/tracer';
@@ -33,7 +34,7 @@ class Logger {
 export class LeaderboardService {
   private logger = new Logger('LeaderboardService');
 
-  constructor(private redisService: RedisService) {}
+  constructor(private redisService: RedisService, private prismaService: PrismaService) {}
 
   async getLeaderboard(limit: number = 20, ifNoneMatch?: string): Promise<{
     entries: LeaderboardEntry[];
@@ -73,15 +74,30 @@ export class LeaderboardService {
           };
         }
 
-        // Transform data to LeaderboardEntry format with real usernames
+        // Transform data to LeaderboardEntry format with real usernames and Telegram IDs
         const entries: LeaderboardEntry[] = await Promise.all(
           leaderboardData.map(async (item, index) => {
             const username = await this.redisService.getUsername(item.userId) || `Player_${item.userId}`;
+            
+            // Get Telegram ID from database
+            let tgUserId = item.userId.toString(); // fallback to internal ID
+            try {
+              const user = await this.prismaService.user.findUnique({
+                where: { id: item.userId },
+                select: { tgUserId: true }
+              });
+              if (user && user.tgUserId) {
+                tgUserId = user.tgUserId.toString();
+              }
+            } catch (error) {
+              this.logger.error(`Failed to get Telegram ID for user ${item.userId}:`, error);
+            }
+            
             return {
               rank: index + 1,
               username,
               clicks: item.clicks,
-              tgUserId: item.userId.toString(),
+              tgUserId,
             };
           })
         );

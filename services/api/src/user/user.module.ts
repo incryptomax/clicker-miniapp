@@ -7,5 +7,6 @@ import { RedisService } from '../redis/redis.service';
 @Module({
   controllers: [UserController],
   providers: [UserService, PrismaService, RedisService],
+  exports: [UserService],
 })
 export class UserModule {}
