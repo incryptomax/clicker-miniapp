@@ -37,54 +37,172 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Welcome Message with three values as per Telegram Technical Test
+  private async showWelcomeMessage(ctx: any, userId: number) {
+    try {
+      // Get user's clicks from Redis by finding the internal user ID first
+      let userClicks = 0;
+      
+      try {
+        const userResponse = await axios.get(`${this.apiBaseUrl}/user/${userId}`);
+        if (userResponse.data && userResponse.data.id) {
+          const internalUserId = userResponse.data.id;
+          userClicks = await this.redisService.getUserClicks(internalUserId);
+        }
+      } catch (error) {
+        // If user not found in API, try direct Redis lookup by Telegram ID
+        userClicks = await this.redisService.getUserClicks(userId);
+      }
+      
+      // Get global clicks
+      const globalClicks = await this.redisService.getGlobalClicks();
+      
+      // Get leaderboard (top 20 as per specs)
+      const response = await axios.get(`${this.apiBaseUrl}/leaderboard?limit=20`);
+      const leaderboard = response.data.entries || [];
+      
+      // Build leaderboard text
+      let leaderboardText = '';
+      if (leaderboard.length > 0) {
+        leaderboardText = '\n🏆 <b>Top 20 Players:</b>\n';
+        leaderboard.forEach((entry: any, index: number) => {
+          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+          const rank = index + 1;
+          leaderboardText += `${medal} <b>#${rank}</b> ${entry.username}: <b>${entry.clicks}</b> clicks\n`;
+        });
+      } else {
+        leaderboardText = '\n🏆 <b>Leaderboard:</b> No players yet!';
+      }
+      
+      // Build Welcome Message
+      const welcomeMessage = 
+        `🎮 <b>Welcome to Clicker Mini App!</b>\n\n` +
+        `📊 <b>Your Statistics:</b>\n` +
+        `👤 <b>Your Clicks:</b> ${userClicks}\n` +
+        `🌍 <b>Global Clicks:</b> ${globalClicks}\n` +
+        leaderboardText + `\n\n` +
+        `🎯 <b>Ready to play?</b> Click the button below to start clicking!`;
+      
+      // Check if we're in development mode
+      const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
+      const isDevelopment = webappUrl.startsWith('http://');
+      
+      const keyboard: any[] = [];
+      
+      if (!isDevelopment) {
+        keyboard.push([
+          {
+            text: '🎮 Play Game',
+            web_app: { url: `${webappUrl}/` }
+          }
+        ]);
+      }
+      
+      keyboard.push([
+        {
+          text: '🔄 Refresh Stats',
+          callback_data: 'refresh_welcome'
+        },
+        {
+          text: '📝 Change Name',
+          callback_data: 'change_username'
+        }
+      ]);
+      
+      await ctx.reply(welcomeMessage, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+      
+    } catch (error) {
+      this.logger.error('Failed to show welcome message:', error);
+      await ctx.reply(
+        `🎮 <b>Welcome to Clicker Mini App!</b>\n\n` +
+        `❌ Unable to load statistics right now.\n` +
+        `Please try again in a moment.`,
+        { parse_mode: 'HTML' }
+      );
+    }
+  }
+
   private setupCommands() {
-    // Start command
+    // Start command - Main flow according to Telegram Technical Test
     this.bot.start(async (ctx) => {
       const userId = ctx.from.id;
       const username = ctx.from.username || ctx.from.first_name || 'User';
       
       this.logger.log(`User ${username} (${userId}) started the bot`);
       
-      // Check if we're in development mode (HTTP URL)
-      const webappUrl = process.env.WEBAPP_URL || 'http://localhost:3003';
-      const isDevelopment = webappUrl.startsWith('http://');
-      
-      if (isDevelopment) {
-        // Development mode - send simple message with link
-      await ctx.reply(
-          `🎮 Welcome to Clicker Mini App, ${username}!\n\n` +
-          `For local development, open the link in your browser:\n` +
-          `${webappUrl}\n\n` +
-          `Or use /leaderboard command to view the leaderboard.`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                  text: '📊 Leaderboard',
-                  callback_data: 'show_leaderboard'
-                }
-              ]]
+      try {
+        // Check if user exists in database
+        const userResponse = await axios.get(`${this.apiBaseUrl}/user/${userId}`);
+        const userExists = userResponse.status === 200;
+        
+        if (!userExists) {
+          // New user - ask to set username
+          await ctx.reply(
+            `🎮 <b>Welcome to Clicker Mini App!</b>\n\n` +
+            `👤 <b>Set Your Username</b>\n` +
+            `Please choose a username for the leaderboard:\n\n` +
+            `Current: <b>${username}</b>\n\n` +
+            `You can:\n` +
+            `• Use your current name\n` +
+            `• Set a custom username\n` +
+            `• Change it later with /changename`,
+            {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: `✅ Use "${username}"`,
+                      callback_data: `confirm_username:${username}`
+                    }
+                  ],
+                  [
+                    {
+                      text: '📝 Set Custom Name',
+                      callback_data: 'change_username'
+                    }
+                  ]
+                ]
+              }
+            }
+          );
+        } else {
+          // Existing user - show Welcome Message with stats
+          await this.showWelcomeMessage(ctx, userId);
+        }
+      } catch (error) {
+        this.logger.error('Failed to check user existence:', error);
+        // Fallback - treat as new user
+        await ctx.reply(
+          `🎮 <b>Welcome to Clicker Mini App!</b>\n\n` +
+          `👤 <b>Set Your Username</b>\n` +
+          `Please choose a username for the leaderboard:\n\n` +
+          `Current: <b>${username}</b>`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: `✅ Use "${username}"`,
+                    callback_data: `confirm_username:${username}`
+                  }
+                ],
+                [
+                  {
+                    text: '📝 Set Custom Name',
+                    callback_data: 'change_username'
+                  }
+                ]
+              ]
             }
           }
         );
-      } else {
-        // Production mode - use Web App
-        await ctx.reply(
-          `🎮 Welcome to Clicker Mini App, ${username}!\n\n` +
-          `Click the button below to start playing:`,
-          {
-            reply_markup: {
-              inline_keyboard: [[
-                {
-                  text: '🎯 Play Game',
-                web_app: {
-                    url: `${webappUrl}/`
-                }
-              }
-            ]]
-          }
-        }
-      );
       }
     });
 
@@ -465,6 +583,21 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
             }
           );
         }
+      } else if (callbackData === 'refresh_welcome') {
+        await ctx.answerCbQuery('🔄 Refreshing...');
+        
+        try {
+          const userId = ctx.from.id;
+          await this.showWelcomeMessage(ctx, userId);
+        } catch (error) {
+          this.logger.error('Failed to refresh welcome message:', error);
+          await ctx.editMessageText(
+            '❌ <b>Oops! Something went wrong</b>\n\n' +
+            'Unable to refresh statistics right now.\n' +
+            'Please try again in a moment.',
+            { parse_mode: 'HTML' }
+          );
+        }
       } else if (callbackData === 'show_my_stats') {
         await ctx.answerCbQuery('📊 Loading your stats...');
         
@@ -522,7 +655,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         const newUsername = callbackData.split(':')[1];
         const userId = ctx.from.id;
         
-        await ctx.answerCbQuery('✅ Username changed!');
+        await ctx.answerCbQuery('✅ Username set!');
         
         try {
          // Call API to change username using bot endpoint
@@ -535,28 +668,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
          });
 
           if (response.data.success) {
-            await ctx.editMessageText(
-              `✅ <b>Username changed!</b>\n\n` +
-              `New name: <b>${response.data.username}</b>\n\n` +
-              `Username will be updated in the leaderboard on next refresh.`,
-              { 
-                parse_mode: 'HTML',
-                reply_markup: {
-                  inline_keyboard: [[
-                    {
-                      text: '🏆 View Leaderboard',
-                      callback_data: 'show_leaderboard'
-                    }
-                  ]]
-                }
-              }
-            );
+            // Show Welcome Message after username is set
+            await this.showWelcomeMessage(ctx, userId);
           } else {
             throw new Error('API returned error');
           }
         } catch (error) {
-          this.logger.error('Failed to update username:', error);
-          await ctx.editMessageText('❌ Failed to change username. Please try again later.');
+          this.logger.error('Failed to set username:', error);
+          await ctx.editMessageText('❌ Failed to set username. Please try again later.');
         }
       } else if (callbackData === 'cancel_username') {
         await ctx.answerCbQuery('❌ Cancelled');
