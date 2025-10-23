@@ -120,3 +120,34 @@ coverage/
 
 # Local development
 .local/
+
+# CI/CD
+.github/workflows/secrets.yml
+
+# Monitoring
+prometheus/
+grafana/
+
+# Kubernetes
+k8s/secrets/
+*.kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Documentation
+docs/build/
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.idea/
+*.iml
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
