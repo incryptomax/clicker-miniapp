@@ -2,6 +2,10 @@
 
 A high-performance, scalable clicker game built as a Telegram Mini App with microservices architecture. This project demonstrates modern backend development practices, real-time data processing, and seamless Telegram integration.
 
+## 🎬 Demo
+
+Watch the application in action: [Demo Video](https://youtu.be/VMbknMxIM3g)
+
 ## 🎯 Overview
 
 This application implements a competitive clicker game where users compete for the highest click count. The system features real-time leaderboards, user statistics, and a responsive Telegram Mini App interface.
